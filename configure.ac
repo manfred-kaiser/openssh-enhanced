@@ -19,7 +19,7 @@ AC_CONFIG_SRCDIR([ssh.c])
 AC_LANG([C])
 
 AC_CONFIG_HEADERS([config.h])
-AC_PROG_CC([cc gcc])
+AC_PROG_CC([cc gcc clang])
 
 # XXX relax this after reimplementing logit() etc.
 AC_MSG_CHECKING([if $CC supports C99-style variadic macros])
@@ -190,6 +190,8 @@ if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	# actually links. The test program compiled/linked includes a number
 	# of integer operations that should exercise this.
 	OSSH_CHECK_CFLAG_LINK([-ftrapv])
+	OSSH_CHECK_CFLAG_COMPILE([-fzero-call-used-regs=all])
+	OSSH_CHECK_CFLAG_COMPILE([-ftrivial-auto-var-init=zero])
     fi
 	AC_MSG_CHECKING([gcc version])
 	GCC_VER=`$CC -v 2>&1 | $AWK '/gcc version /{print $3}'`
@@ -3103,8 +3105,6 @@ if test "x$openssl" = "xyes" ; then
 		AC_MSG_RESULT([no])
 	)
 
-	TEST_SSH_ECC=no
-
 	if test x$enable_nistp256 = x1 || test x$enable_nistp384 = x1 || \
 	    test x$enable_nistp521 = x1; then
 		AC_DEFINE(OPENSSL_HAS_ECC, [1], [OpenSSL has ECC])
@@ -3116,7 +3116,6 @@ if test "x$openssl" = "xyes" ; then
 	if test x$enable_nistp256 = x1; then
 		AC_DEFINE([OPENSSL_HAS_NISTP256], [1],
 		    [libcrypto has NID_X9_62_prime256v1])
-		TEST_SSH_ECC=yes
 	else
 		unsupported_algorithms="$unsupported_algorithms \
 			ecdsa-sha2-nistp256 \
@@ -3125,7 +3124,6 @@ if test "x$openssl" = "xyes" ; then
 	fi
 	if test x$enable_nistp384 = x1; then
 		AC_DEFINE([OPENSSL_HAS_NISTP384], [1], [libcrypto has NID_secp384r1])
-		TEST_SSH_ECC=yes
 	else
 		unsupported_algorithms="$unsupported_algorithms \
 			ecdsa-sha2-nistp384 \
@@ -3134,7 +3132,6 @@ if test "x$openssl" = "xyes" ; then
 	fi
 	if test x$enable_nistp521 = x1; then
 		AC_DEFINE([OPENSSL_HAS_NISTP521], [1], [libcrypto has NID_secp521r1])
-		TEST_SSH_ECC=yes
 	else
 		unsupported_algorithms="$unsupported_algorithms \
 			ecdh-sha2-nistp521 \
@@ -3142,7 +3139,6 @@ if test "x$openssl" = "xyes" ; then
 			ecdsa-sha2-nistp521-cert-v01@openssh.com"
 	fi
 
-	AC_SUBST([TEST_SSH_ECC])
 else
 	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
 	AC_CHECK_FUNCS([crypt])
@@ -3153,10 +3149,6 @@ enable_pkcs11=yes
 enable_sk=yes
 if test "x$openssl" != "xyes" ; then
 	enable_pkcs11="disabled; missing libcrypto"
-	enable_sk="disabled; missing libcrypto"
-fi
-if test "x$openssl_ecc" != "xyes" ; then
-	enable_sk="disabled; OpenSSL has no ECC support"
 fi
 if test "x$ac_cv_func_dlopen" != "xyes" ; then
 	enable_pkcs11="disabled; missing dlopen(3)"

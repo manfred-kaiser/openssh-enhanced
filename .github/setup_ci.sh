@@ -1,6 +1,6 @@
 #!/bin/sh
 
-case $(./config.guess) in
+case "`./config.guess`" in
 *-darwin*)
 	brew install automake
 	exit 0
@@ -11,6 +11,7 @@ TARGETS=$@
 
 PACKAGES=""
 INSTALL_FIDO_PPA="no"
+export DEBIAN_FRONTEND=noninteractive
 
 #echo "Setting up for '$TARGETS'"
 
@@ -26,6 +27,9 @@ for TARGET in $TARGETS; do
     case $TARGET in
     default|without-openssl|without-zlib|c89)
         # nothing to do
+        ;;
+    clang-*|gcc-*)
+        PACKAGES="$PACKAGES $TARGET"
         ;;
     kerberos5)
         PACKAGES="$PACKAGES heimdal-dev"
@@ -79,8 +83,8 @@ done
 
 if [ "yes" = "$INSTALL_FIDO_PPA" ]; then
     sudo apt update -qq
-    sudo apt install software-properties-common
-    sudo apt-add-repository ppa:yubico/stable
+    sudo apt install -qy software-properties-common
+    sudo apt-add-repository -y ppa:yubico/stable
 fi
 
 if [ "x" != "x$PACKAGES" ]; then 

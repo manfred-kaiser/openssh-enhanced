@@ -1,4 +1,4 @@
-/* $OpenBSD: sk-usbhid.c,v 1.30 2021/05/31 06:48:42 djm Exp $ */
+/* $OpenBSD: sk-usbhid.c,v 1.31 2021/10/01 04:50:36 djm Exp $ */
 /*
  * Copyright (c) 2019 Markus Friedl
  * Copyright (c) 2020 Pedro Martelletto
@@ -29,6 +29,15 @@
 #include <time.h>
 #ifdef HAVE_SHA2_H
 #include <sha2.h>
+#endif
+
+/*
+ * Almost every use of OpenSSL in this file is for ECDSA-NISTP256.
+ * This is strictly a larger hammer than necessary, but it reduces changes
+ * with upstream.
+ */
+#ifndef OPENSSL_HAS_ECC
+# undef WITH_OPENSSL
 #endif
 
 #ifdef WITH_OPENSSL
@@ -306,6 +315,8 @@ sha256_mem(const void *m, size_t mlen, u_char *d, size_t dlen)
 {
 #ifdef WITH_OPENSSL
 	u_int mdlen;
+#else
+	SHA2_CTX ctx;
 #endif
 
 	if (dlen != 32)
@@ -315,7 +326,9 @@ sha256_mem(const void *m, size_t mlen, u_char *d, size_t dlen)
 	if (!EVP_Digest(m, mlen, d, &mdlen, EVP_sha256(), NULL))
 		return -1;
 #else
-	SHA256Data(m, mlen, d);
+	SHA256Init(&ctx);
+	SHA256Update(&ctx, (const uint8_t *)m, mlen);
+	SHA256Final(d, &ctx);
 #endif
 	return 0;
 }

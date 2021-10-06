@@ -25,8 +25,12 @@ case "$config" in
     c89)
 	CC="gcc"
 	CFLAGS="-Wall -std=c89 -pedantic -Werror=vla"
-	CONFIGFLAGS="--without-openssl --without-zlib"
+	CONFIGFLAGS="--without-zlib"
+	LIBCRYPTOFLAGS="--without-openssl"
 	TEST_TARGET=t-exec
+	;;
+    clang*|gcc*)
+	CC="$config"
 	;;
     kitchensink)
 	CONFIGFLAGS="--with-kerberos5 --with-libedit --with-pam"
@@ -123,7 +127,7 @@ case "${TARGET_HOST}" in
 	;;
     minix3)
 	CC="clang"
-	LIBCRYPTOFLAGS="--without-openssl"
+	LIBCRYPTOFLAGS="--without-openssl --disable-security-key"
 	# Minix does not have a loopback interface so we have to skip any
 	# test that relies on it.
 	TEST_TARGET=t-exec
@@ -137,7 +141,8 @@ case "${TARGET_HOST}" in
 	;;
     nbsd4)
 	# System compiler will ICE on some files with fstack-protector
-	CONFIGFLAGS="${CONFIGFLAGS} --without-hardening"
+	# SHA256 functions in sha2.h conflict with OpenSSL's breaking sk-dummy
+	CONFIGFLAGS="${CONFIGFLAGS} --without-hardening --disable-security-key"
 	;;
     sol10|sol11)
 	# sol10 VM is 32bit and the unit tests are slow.
@@ -147,6 +152,15 @@ case "${TARGET_HOST}" in
     win10)
 	# No sudo on Windows.
 	SUDO=""
+	;;
+esac
+
+# Unless specified otherwise, build without OpenSSL on Mac OS since
+# modern versions don't ship with libcrypto.
+case "`./config.guess`" in
+*-darwin*)
+	LIBCRYPTOFLAGS="--without-openssl"
+	TEST_TARGET=t-exec
 	;;
 esac
 

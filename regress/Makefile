@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.117 2021/09/03 04:11:13 dtucker Exp $
+#	$OpenBSD: Makefile,v 1.118 2021/10/01 05:20:20 dtucker Exp $
 
 tests:		prep file-tests t-exec unit
 
@@ -98,6 +98,7 @@ LTESTS= 	connect \
 		allow-deny-users \
 		authinfo \
 		sshsig \
+		knownhosts \
 		knownhosts-command
 
 
@@ -188,13 +189,13 @@ t8: $(OBJ)/t8.out
 	${TEST_SSH_SSHKEYGEN} -Bf $(OBJ)/t8.out > /dev/null
 
 $(OBJ)/t9.out:
-	test "${TEST_SSH_ECC}" != yes || \
+	! ${TEST_SSH_SSH} -Q key-plain | grep ecdsa >/dev/null || \
 	${TEST_SSH_SSHKEYGEN} -q -t ecdsa -N '' -f $@
 
 t9: $(OBJ)/t9.out
-	test "${TEST_SSH_ECC}" != yes || \
+	! ${TEST_SSH_SSH} -Q key-plain | grep ecdsa >/dev/null || \
 	${TEST_SSH_SSHKEYGEN} -lf $(OBJ)/t9.out > /dev/null
-	test "${TEST_SSH_ECC}" != yes || \
+	! ${TEST_SSH_SSH} -Q key-plain | grep ecdsa >/dev/null || \
 	${TEST_SSH_SSHKEYGEN} -Bf $(OBJ)/t9.out > /dev/null
 
 
