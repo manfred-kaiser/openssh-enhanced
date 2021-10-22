@@ -1,5 +1,7 @@
 #!/bin/sh
 
+ . .github/configs $@
+
 case "`./config.guess`" in
 *-darwin*)
 	brew install automake
@@ -23,23 +25,25 @@ if [ "${TARGETS}" = "kitchensink" ]; then
 	TARGETS="kerberos5 libedit pam sk selinux"
 fi
 
+for flag in $CONFIGFLAGS; do
+    case "$flag" in
+    --with-pam)		PACKAGES="${PACKAGES} libpam0g-dev" ;;
+    --with-libedit)	PACKAGES="${PACKAGES} libedit-dev" ;;
+    esac
+done
+
 for TARGET in $TARGETS; do
     case $TARGET in
-    default|without-openssl|without-zlib|c89)
+    default|without-openssl|without-zlib|c89|libedit|*pam)
         # nothing to do
         ;;
     clang-*|gcc-*)
-        PACKAGES="$PACKAGES $TARGET"
+        compiler=$(echo $TARGET | sed 's/-Werror//')
+        PACKAGES="$PACKAGES $compiler"
         ;;
     kerberos5)
         PACKAGES="$PACKAGES heimdal-dev"
         #PACKAGES="$PACKAGES libkrb5-dev"
-        ;;
-    libedit)
-        PACKAGES="$PACKAGES libedit-dev"
-        ;;
-    *pam)
-        PACKAGES="$PACKAGES libpam0g-dev"
         ;;
     sk)
         INSTALL_FIDO_PPA="yes"
@@ -50,7 +54,10 @@ for TARGET in $TARGETS; do
         ;;
     hardenedmalloc)
         INSTALL_HARDENED_MALLOC=yes
-       ;;
+        ;;
+    tcmalloc)
+        PACKAGES="$PACKAGES libgoogle-perftools-dev"
+        ;;
     openssl-noec)
 	INSTALL_OPENSSL=OpenSSL_1_1_1k
 	SSLCONFOPTS="no-ec"
