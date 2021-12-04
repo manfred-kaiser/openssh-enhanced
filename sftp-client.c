@@ -1,4 +1,4 @@
-/* $OpenBSD: sftp-client.c,v 1.155 2021/09/03 05:12:25 dtucker Exp $ */
+/* $OpenBSD: sftp-client.c,v 1.157 2021/11/06 10:13:39 dtucker Exp $ */
 /*
  * Copyright (c) 2001-2004 Damien Miller <djm@openbsd.org>
  *
@@ -1840,7 +1840,7 @@ do_upload(struct sftp_conn *conn, const char *local_path,
 
 	TAILQ_INIT(&acks);
 
-	if ((local_fd = open(local_path, O_RDONLY, 0)) == -1) {
+	if ((local_fd = open(local_path, O_RDONLY)) == -1) {
 		error("Couldn't open local file \"%s\" for reading: %s",
 		    local_path, strerror(errno));
 		return(-1);
@@ -2195,6 +2195,7 @@ handle_dest_replies(struct sftp_conn *to, const char *to_path, int synchronous,
 		(*nreqsp)--;
 	}
 	debug3_f("done: %u outstanding replies", *nreqsp);
+	sshbuf_free(msg);
 }
 
 int

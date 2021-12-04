@@ -176,6 +176,8 @@ if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
 	OSSH_CHECK_CFLAG_COMPILE([-Wunused-parameter], [-Wno-unused-parameter])
 	OSSH_CHECK_CFLAG_COMPILE([-Wunused-result], [-Wno-unused-result])
 	OSSH_CHECK_CFLAG_COMPILE([-Wimplicit-fallthrough])
+	OSSH_CHECK_CFLAG_COMPILE([-Wmisleading-indentation])
+	OSSH_CHECK_CFLAG_COMPILE([-Wbitwise-instead-of-logical])
 	OSSH_CHECK_CFLAG_COMPILE([-fno-strict-aliasing])
     if test "x$use_toolchain_hardening" = "x1"; then
 	OSSH_CHECK_CFLAG_COMPILE([-mretpoline]) # clang
@@ -763,6 +765,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		if test -z "$GCC"; then
 			CFLAGS="$CFLAGS -Ae"
 		fi
+		AC_DEFINE([BROKEN_GETLINE], [1], [getline is not what we expect])
 		;;
 	*-*-hpux11*)
 		AC_DEFINE([PAM_SUN_CODEBASE], [1],
@@ -836,6 +839,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	dnl Target SUSv3/POSIX.1-2001 plus BSD specifics.
 	dnl _DEFAULT_SOURCE is the new name for _BSD_SOURCE
 	CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=600 -D_BSD_SOURCE -D_DEFAULT_SOURCE"
+	AC_DEFINE([BROKEN_CLOSEFROM], [1], [broken in chroots on older kernels])
 	AC_DEFINE([PAM_TTY_KLUDGE], [1],
 		[Work around problematic Linux PAM modules handling of PAM_TTY])
 	AC_DEFINE([LOCKED_PASSWD_PREFIX], ["!"],
@@ -990,6 +994,11 @@ mips-sony-bsd|mips-sony-newsos4)
 	# and will crash if they cannot be opened.
 	AC_DEFINE([SANDBOX_SKIP_RLIMIT_NOFILE], [1],
 	    [define if setrlimit RLIMIT_NOFILE breaks things])
+	case "$host" in
+	*-*-freebsd9.*|*-*-freebsd10.*)
+		# Capsicum on 9 and 10 do not allow ppoll() so don't auto-enable.
+		disable_capsicum=yes
+	esac
 	;;
 *-*-bsdi*)
 	AC_DEFINE([SETEUID_BREAKS_SETUID])
@@ -1817,6 +1826,7 @@ AC_CHECK_FUNCS([ \
 	cap_rights_limit \
 	clock \
 	closefrom \
+	close_range \
 	dirfd \
 	endgrent \
 	err \
@@ -1859,7 +1869,6 @@ AC_CHECK_FUNCS([ \
 	localtime_r \
 	login_getcapbool \
 	login_getpwclass \
-	md5_crypt \
 	memmem \
 	memmove \
 	memset_s \
@@ -1870,6 +1879,7 @@ AC_CHECK_FUNCS([ \
 	openlog_r \
 	pledge \
 	poll \
+	ppoll \
 	prctl \
 	procctl \
 	pselect \
@@ -3543,6 +3553,26 @@ AC_RUN_IFELSE(
 	 select_works_with_rlimit=yes]
 )
 
+AC_CHECK_MEMBERS([struct pollfd.fd], [], [], [[
+#include <sys/types.h>
+#ifdef HAVE_POLL_H
+#include <poll.h>
+#endif
+#ifdef HAVE_SYS_POLL_H
+#include <sys/poll.h>
+#endif
+]])
+
+AC_CHECK_TYPES([nfds_t], , , [
+#include <sys/types.h>
+#ifdef HAVE_POLL_H
+#include <poll.h>
+#endif
+#ifdef HAVE_SYS_POLL_H
+#include <sys/poll.h>
+#endif
+])
+
 AC_MSG_CHECKING([if setrlimit(RLIMIT_NOFILE,{0,0}) works])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
@@ -3629,6 +3659,7 @@ elif test "x$sandbox_arg" = "xseccomp_filter" || \
 	AC_DEFINE([SANDBOX_SECCOMP_FILTER], [1], [Sandbox using seccomp filter])
 elif test "x$sandbox_arg" = "xcapsicum" || \
      ( test -z "$sandbox_arg" && \
+       test "x$disable_capsicum" != "xyes" && \
        test "x$ac_cv_header_sys_capsicum_h" = "xyes" && \
        test "x$ac_cv_func_cap_rights_limit" = "xyes") ; then
        test "x$ac_cv_header_sys_capsicum_h" != "xyes" && \
@@ -4943,19 +4974,6 @@ else
 fi
 AC_SUBST([mansubdir])
 
-# Check whether to enable MD5 passwords
-MD5_MSG="no"
-AC_ARG_WITH([md5-passwords],
-	[  --with-md5-passwords    Enable use of MD5 passwords],
-	[
-		if test "x$withval" != "xno" ; then
-			AC_DEFINE([HAVE_MD5_PASSWORDS], [1],
-				[Define if you want to allow MD5 passwords])
-			MD5_MSG="yes"
-		fi
-	]
-)
-
 # Whether to disable shadow password support
 AC_ARG_WITH([shadow],
 	[  --without-shadow        Disable shadow password support],
@@ -5550,7 +5568,6 @@ echo "                       PAM support: $PAM_MSG"
 echo "                   OSF SIA support: $SIA_MSG"
 echo "                 KerberosV support: $KRB5_MSG"
 echo "                   SELinux support: $SELINUX_MSG"
-echo "              MD5 password support: $MD5_MSG"
 echo "                   libedit support: $LIBEDIT_MSG"
 echo "                   libldns support: $LDNS_MSG"
 echo "  Solaris process contract support: $SPC_MSG"
