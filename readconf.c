@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.c,v 1.363 2021/09/16 05:36:03 djm Exp $ */
+/* $OpenBSD: readconf.c,v 1.364 2021/12/19 22:14:47 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -892,6 +892,15 @@ static const struct multistate multistate_canonicalizehostname[] = {
 	{ "always",			SSH_CANONICALISE_ALWAYS },
 	{ NULL, -1 }
 };
+static const struct multistate multistate_pubkey_auth[] = {
+	{ "true",			SSH_PUBKEY_AUTH_ALL },
+	{ "false",			SSH_PUBKEY_AUTH_NO },
+	{ "yes",			SSH_PUBKEY_AUTH_ALL },
+	{ "no",				SSH_PUBKEY_AUTH_NO },
+	{ "unbound",			SSH_PUBKEY_AUTH_UNBOUND },
+	{ "host-bound",			SSH_PUBKEY_AUTH_HBOUND },
+	{ NULL, -1 }
+};
 static const struct multistate multistate_compression[] = {
 #ifdef WITH_ZLIB
 	{ "yes",			COMP_ZLIB },
@@ -1104,8 +1113,9 @@ parse_time:
 		goto parse_string;
 
 	case oPubkeyAuthentication:
+		multistate_ptr = multistate_pubkey_auth;
 		intptr = &options->pubkey_authentication;
-		goto parse_flag;
+		goto parse_multistate;
 
 	case oPubkeyDisablePKCheck:
 		intptr = &options->pubkey_disable_pk_check;
@@ -2499,7 +2509,7 @@ fill_default_options(Options * options)
 	if (options->fwd_opts.streamlocal_bind_unlink == -1)
 		options->fwd_opts.streamlocal_bind_unlink = 0;
 	if (options->pubkey_authentication == -1)
-		options->pubkey_authentication = 1;
+		options->pubkey_authentication = SSH_PUBKEY_AUTH_ALL;
 	if (options->pubkey_disable_pk_check == -1)
 		options->pubkey_disable_pk_check = 0;
 	if (options->gss_authentication == -1)
@@ -3153,6 +3163,8 @@ fmt_intarg(OpCodes code, int val)
 		return fmt_multistate_int(val, multistate_canonicalizehostname);
 	case oAddKeysToAgent:
 		return fmt_multistate_int(val, multistate_yesnoaskconfirm);
+	case oPubkeyAuthentication:
+		return fmt_multistate_int(val, multistate_pubkey_auth);
 	case oFingerprintHash:
 		return ssh_digest_alg_name(val);
 	default:
