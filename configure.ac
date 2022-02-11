@@ -731,6 +731,10 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	# proc_pidinfo()-based closefrom() replacement.
 	AC_CHECK_HEADERS([libproc.h])
 	AC_CHECK_FUNCS([proc_pidinfo])
+	# poll(2) is broken for character-special devices (at least).
+	# cf. Apple bug 3710161 (not public, but searchable)
+	AC_DEFINE([BROKEN_POLL], [1],
+	    [System poll(2) implementation is broken])
 	;;
 *-*-dragonfly*)
 	SSHDLIBS="$SSHDLIBS -lcrypt"
@@ -2635,23 +2639,17 @@ AC_ARG_WITH([ssl-dir],
 				./*|../*)	withval="`pwd`/$withval"
 			esac
 			if test -d "$withval/lib"; then
-				if test -n "${rpath_opt}"; then
-					LDFLAGS="-L${withval}/lib ${rpath_opt}${withval}/lib ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-				fi
+				libcrypto_path="${withval}/lib"
 			elif test -d "$withval/lib64"; then
-				if test -n "${rpath_opt}"; then
-					LDFLAGS="-L${withval}/lib64 ${rpath_opt}${withval}/lib64 ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval}/lib64 ${LDFLAGS}"
-				fi
+				libcrypto_path="$withval/lib64"
 			else
-				if test -n "${rpath_opt}"; then
-					LDFLAGS="-L${withval} ${rpath_opt}${withval} ${LDFLAGS}"
-				else
-					LDFLAGS="-L${withval} ${LDFLAGS}"
-				fi
+				# Built but not installed
+				libcrypto_path="${withval}"
+			fi
+			if test -n "${rpath_opt}"; then
+				LDFLAGS="-L${libcrypto_path} ${rpath_opt}${libcrypto_path} ${LDFLAGS}"
+			else
+				LDFLAGS="-L${libcrypto_path} ${LDFLAGS}"
 			fi
 			if test -d "$withval/include"; then
 				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
@@ -3226,8 +3224,10 @@ if test "x$enable_sk" = "xyes" -a "x$enable_sk_internal" = "xyes" ; then
 	saved_LIBS="$LIBS"
 	LIBS="$LIBS $LIBFIDO2"
 	AC_CHECK_FUNCS([ \
+		fido_assert_set_clientdata \
 		fido_cred_prot \
 		fido_cred_set_prot \
+		fido_cred_set_clientdata \
 		fido_dev_get_touch_begin \
 		fido_dev_get_touch_status \
 		fido_dev_supports_cred_prot \

@@ -1,4 +1,4 @@
-/* $OpenBSD: kex.c,v 1.170 2021/12/19 22:13:12 djm Exp $ */
+/* $OpenBSD: kex.c,v 1.172 2022/02/01 23:32:51 djm Exp $ */
 /*
  * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
  *
@@ -66,7 +66,7 @@
 static int kex_choose_conf(struct ssh *);
 static int kex_input_newkeys(int, u_int32_t, struct ssh *);
 
-static const char *proposal_names[PROPOSAL_MAX] = {
+static const char * const proposal_names[PROPOSAL_MAX] = {
 	"KEX algorithms",
 	"host key algorithms",
 	"ciphers ctos",
@@ -900,6 +900,18 @@ proposals_match(char *my[PROPOSAL_MAX], char *peer[PROPOSAL_MAX])
 	return (1);
 }
 
+/* returns non-zero if proposal contains any algorithm from algs */
+static int
+has_any_alg(const char *proposal, const char *algs)
+{
+	char *cp;
+
+	if ((cp = match_list(proposal, algs, NULL)) == NULL)
+		return 0;
+	free(cp);
+	return 1;
+}
+
 static int
 kex_choose_conf(struct ssh *ssh)
 {
@@ -933,6 +945,16 @@ kex_choose_conf(struct ssh *ssh)
 		ext = match_list("ext-info-c", peer[PROPOSAL_KEX_ALGS], NULL);
 		kex->ext_info_c = (ext != NULL);
 		free(ext);
+	}
+
+	/* Check whether client supports rsa-sha2 algorithms */
+	if (kex->server && (kex->flags & KEX_INITIAL)) {
+		if (has_any_alg(peer[PROPOSAL_SERVER_HOST_KEY_ALGS],
+		    "rsa-sha2-256,rsa-sha2-256-cert-v01@openssh.com"))
+			kex->flags |= KEX_RSA_SHA2_256_SUPPORTED;
+		if (has_any_alg(peer[PROPOSAL_SERVER_HOST_KEY_ALGS],
+		    "rsa-sha2-512,rsa-sha2-512-cert-v01@openssh.com"))
+			kex->flags |= KEX_RSA_SHA2_512_SUPPORTED;
 	}
 
 	/* Algorithm Negotiation */

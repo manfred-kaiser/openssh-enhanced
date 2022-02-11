@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-add.c,v 1.163 2021/12/22 06:56:41 jmc Exp $ */
+/* $OpenBSD: ssh-add.c,v 1.165 2022/02/04 02:49:17 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -77,7 +77,6 @@ extern char *__progname;
 static char *default_files[] = {
 #ifdef WITH_OPENSSL
 	_PATH_SSH_CLIENT_ID_RSA,
-	_PATH_SSH_CLIENT_ID_DSA,
 #ifdef OPENSSL_HAS_ECC
 	_PATH_SSH_CLIENT_ID_ECDSA,
 	_PATH_SSH_CLIENT_ID_ECDSA_SK,
@@ -86,6 +85,7 @@ static char *default_files[] = {
 	_PATH_SSH_CLIENT_ID_ED25519,
 	_PATH_SSH_CLIENT_ID_ED25519_SK,
 	_PATH_SSH_CLIENT_ID_XMSS,
+	_PATH_SSH_CLIENT_ID_DSA,
 	NULL
 };
 
@@ -354,11 +354,6 @@ add_file(int agent_fd, const char *filename, int key_only, int qflag,
 		if (skprovider == NULL) {
 			fprintf(stderr, "Cannot load FIDO key %s "
 			    "without provider\n", filename);
-			goto out;
-		}
-		if ((private->sk_flags & SSH_SK_USER_VERIFICATION_REQD) != 0) {
-			fprintf(stderr, "FIDO verify-required key %s is not "
-			    "currently supported by ssh-agent\n", filename);
 			goto out;
 		}
 	} else {

@@ -1,4 +1,4 @@
-/* $OpenBSD: sshconnect2.c,v 1.354 2021/12/19 22:14:47 djm Exp $ */
+/* $OpenBSD: sshconnect2.c,v 1.356 2022/02/01 23:32:51 djm Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  * Copyright (c) 2008 Damien Miller.  All rights reserved.
@@ -1325,7 +1325,7 @@ identity_sign(struct identity *id, u_char **sigp, size_t *lenp,
 static int
 id_filename_matches(Identity *id, Identity *private_id)
 {
-	const char *suffixes[] = { ".pub", "-cert.pub", NULL };
+	static const char * const suffixes[] = { ".pub", "-cert.pub", NULL };
 	size_t len = strlen(id->filename), plen = strlen(private_id->filename);
 	size_t i, slen;
 
@@ -2179,9 +2179,9 @@ userauth_hostbased(struct ssh *ssh)
 			if (authctxt->sensitive->keys[i] == NULL ||
 			    authctxt->sensitive->keys[i]->type == KEY_UNSPEC)
 				continue;
-			if (match_pattern_list(
+			if (!sshkey_match_keyname_to_sigalgs(
 			    sshkey_ssh_name(authctxt->sensitive->keys[i]),
-			    authctxt->active_ktype, 0) != 1)
+			    authctxt->active_ktype))
 				continue;
 			/* we take and free the key */
 			private = authctxt->sensitive->keys[i];
@@ -2207,7 +2207,8 @@ userauth_hostbased(struct ssh *ssh)
 		error_f("sshkey_fingerprint failed");
 		goto out;
 	}
-	debug_f("trying hostkey %s %s", sshkey_ssh_name(private), fp);
+	debug_f("trying hostkey %s %s using sigalg %s",
+	    sshkey_ssh_name(private), fp, authctxt->active_ktype);
 
 	/* figure out a name for the client host */
 	lname = get_local_name(ssh_packet_get_connection_in(ssh));
