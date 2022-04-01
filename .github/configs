@@ -145,6 +145,12 @@ case "$config" in
 esac
 
 case "${TARGET_HOST}" in
+    aix*)
+	# These are slow real or virtual machines so skip the slowest tests
+	# (which tend to be thw ones that transfer lots of data) so that the
+	# test run does not time out.
+	SKIP_LTESTS="rekey sftp"
+	;;
     dfly58*|dfly60*)
 	# scp 3-way connection hangs on these so skip until sorted.
 	SKIP_LTESTS=scp3
@@ -172,6 +178,10 @@ case "${TARGET_HOST}" in
 	# System compiler will ICE on some files with fstack-protector
 	# SHA256 functions in sha2.h conflict with OpenSSL's breaking sk-dummy
 	CONFIGFLAGS="${CONFIGFLAGS} --without-hardening --disable-security-key"
+	;;
+    openwrt-*)
+	CONFIGFLAGS="${CONFIGFLAGS} --without-openssl --without-zlib"
+	TEST_TARGET="t-exec"
 	;;
     sol10|sol11)
 	# sol10 VM is 32bit and the unit tests are slow.
