@@ -2,7 +2,8 @@ name: C/C++ CI self-hosted
 
 on:
   push:
-    branches: [ master, ci ]
+    branches: [ master, ci, V_9_0 ]
+    paths: [ '**.c', '**.h', '**.m4', '**.sh', '**.yml', 'Makefile.in', 'configure.ac' ]
 
 jobs:
   selfhosted:
@@ -21,11 +22,11 @@ jobs:
           - alpine
           - bbone
           - debian-i386
+          - debian-riscv64
           - dfly30
           - dfly48
           - dfly58
           - dfly60
-          - fbsd6
           - fbsd10
           - fbsd12
           - fbsd13
@@ -58,7 +59,6 @@ jobs:
           - { os: dfly48, configs: pam }
           - { os: dfly58, configs: pam }
           - { os: dfly60, configs: pam }
-          - { os: fbsd6,  configs: pam }
           - { os: fbsd10, configs: pam }
           - { os: fbsd12, configs: pam }
           - { os: fbsd13, configs: pam }
