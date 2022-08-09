@@ -69,6 +69,10 @@ void closefrom(int);
 int ftruncate(int filedes, off_t length);
 #endif
 
+#if defined(HAVE_DECL_GETENTROPY) && HAVE_DECL_GETENTROPY == 0
+int getentropy(void *, size_t);
+#endif
+
 #ifndef HAVE_GETLINE
 #include <stdio.h>
 ssize_t getline(char **, size_t *, FILE *);
@@ -228,7 +232,7 @@ void arc4random_buf(void *, size_t);
 #endif
 
 #ifndef HAVE_ARC4RANDOM_UNIFORM
-u_int32_t arc4random_uniform(u_int32_t);
+uint32_t arc4random_uniform(uint32_t);
 #endif
 
 #ifndef HAVE_ASPRINTF
