@@ -713,7 +713,7 @@ case "$host" in
 	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <mach-o/dyld.h>
 #include <stdlib.h>
-main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
+int main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		exit(0);
 	else
 		exit(1);
@@ -1967,6 +1967,7 @@ AC_CHECK_FUNCS([ \
 	swap32 \
 	sysconf \
 	tcgetpgrp \
+	timegm \
 	timingsafe_bcmp \
 	truncate \
 	unsetenv \
@@ -2811,7 +2812,7 @@ if test "x$openssl" = "xyes" ; then
 				# OpenSSL 3; we use the 1.1x API
 				CPPFLAGS="$CPPFLAGS -DOPENSSL_API_COMPAT=0x10100000L"
 				;;
-			301*)
+			301*|302*)
 				# OpenSSL development branch; request 1.1x API
 				CPPFLAGS="$CPPFLAGS -DOPENSSL_API_COMPAT=0x10100000L"
 				;;
@@ -4258,7 +4259,7 @@ dnl test snprintf (broken on SCO w/gcc)
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_SNPRINTF
-main()
+int main()
 {
 	char buf[50];
 	char expected_out[50];
@@ -4275,7 +4276,7 @@ main()
 	exit(0);
 }
 #else
-main() { exit(0); }
+int main() { exit(0); }
 #endif
 		]])], [ true ], [ AC_DEFINE([BROKEN_SNPRINTF]) ],
 		AC_MSG_WARN([cross compiling: Assuming working snprintf()])
@@ -4323,6 +4324,16 @@ AC_CHECK_MEMBER([struct __res_state.retrans], [], [AC_DEFINE([__res_state], [sta
 #include <arpa/nameser.h>
 #include <resolv.h>
 ]])
+
+AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
+    [AC_DEFINE([SOCK_HAS_LEN], [1], [sockaddr_in has sin_len])],
+    [],
+    [AC_LANG_SOURCE([[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+    ]])]
+)
 
 AC_CACHE_CHECK([for ss_family field in struct sockaddr_storage],
 		ac_cv_have_ss_family_in_struct_ss, [

@@ -2,8 +2,8 @@ name: Upstream self-hosted
 
 on:
   push:
-    branches: [ master, ci ]
-    paths: [ '**.c', '**.h', '**.yml' ]
+    branches: [ master ]
+    paths: [ '**.c', '**.h', '.github/**' ]
 
 jobs:
   selfhosted:

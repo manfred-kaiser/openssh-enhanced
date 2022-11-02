@@ -69,10 +69,6 @@ void closefrom(int);
 int ftruncate(int filedes, off_t length);
 #endif
 
-#if defined(HAVE_DECL_GETENTROPY) && HAVE_DECL_GETENTROPY == 0
-int getentropy(void *, size_t);
-#endif
-
 #ifndef HAVE_GETLINE
 #include <stdio.h>
 ssize_t getline(char **, size_t *, FILE *);
@@ -218,17 +214,16 @@ int writev(int, struct iovec *, int);
 int getpeereid(int , uid_t *, gid_t *);
 #endif
 
-#ifdef HAVE_ARC4RANDOM
-# ifndef HAVE_ARC4RANDOM_STIR
-#  define arc4random_stir()
-# endif
-#else
-unsigned int arc4random(void);
-void arc4random_stir(void);
+#ifndef HAVE_ARC4RANDOM
+uint32_t arc4random(void);
 #endif /* !HAVE_ARC4RANDOM */
 
 #ifndef HAVE_ARC4RANDOM_BUF
 void arc4random_buf(void *, size_t);
+#endif
+
+#ifndef HAVE_ARC4RANDOM_STIR
+# define arc4random_stir()
 #endif
 
 #ifndef HAVE_ARC4RANDOM_UNIFORM
@@ -341,6 +336,10 @@ void freezero(void *, size_t);
 
 #ifndef HAVE_LOCALTIME_R
 struct tm *localtime_r(const time_t *, struct tm *);
+#endif
+
+#ifndef HAVE_TIMEGM
+time_t timegm(struct tm *);
 #endif
 
 char *xcrypt(const char *password, const char *salt);

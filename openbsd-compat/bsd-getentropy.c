@@ -18,8 +18,6 @@
 
 #include "includes.h"
 
-#ifndef HAVE_GETENTROPY
-
 #ifndef SSH_RANDOM_DEV
 # define SSH_RANDOM_DEV "/dev/urandom"
 #endif /* SSH_RANDOM_DEV */
@@ -41,7 +39,7 @@
 #include "log.h"
 
 int
-getentropy(void *s, size_t len)
+_ssh_compat_getentropy(void *s, size_t len)
 {
 #ifdef WITH_OPENSSL
 	if (RAND_bytes(s, len) <= 0)
@@ -52,6 +50,10 @@ getentropy(void *s, size_t len)
 	ssize_t r;
 	size_t o = 0;
 
+#ifdef HAVE_GETENTROPY
+	if (r = getentropy(s, len) == 0)
+		return 0;
+#endif /* HAVE_GETENTROPY */
 #ifdef HAVE_GETRANDOM
 	if ((r = getrandom(s, len, 0)) > 0 && (size_t)r == len)
 		return 0;
@@ -79,4 +81,3 @@ getentropy(void *s, size_t len)
 #endif /* WITH_OPENSSL */
 	return 0;
 }
-#endif /* WITH_GETENTROPY */
