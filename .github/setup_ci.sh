@@ -4,13 +4,15 @@ PACKAGES=""
 
  . .github/configs $@
 
-case "`./config.guess`" in
+host=`./config.guess`
+echo "config.guess: $host"
+case "$host" in
 *cygwin)
 	PACKAGER=setup
-	echo Setting CYGWIN sustem environment variable.
+	echo Setting CYGWIN system environment variable.
 	setx CYGWIN "binmode"
-	chmod -R go-rw /cygdrive/d/a
-	umask 077
+	echo Removing extended ACLs so umask works as expected.
+	setfacl -b . regress
 	PACKAGES="$PACKAGES,autoconf,automake,cygwin-devel,gcc-core"
 	PACKAGES="$PACKAGES,make,openssl-devel,zlib-devel"
 	;;
@@ -124,8 +126,14 @@ for TARGET in $TARGETS; do
         esac
         PACKAGES="${PACKAGES} putty-tools"
        ;;
+    boringssl)
+        INSTALL_BORINGSSL=1
+        PACKAGES="${PACKAGES} cmake ninja-build"
+       ;;
     valgrind*)
        PACKAGES="$PACKAGES valgrind"
+       ;;
+    zlib-*)
        ;;
     *) echo "Invalid option '${TARGET}'"
         exit 1
@@ -168,7 +176,7 @@ if [ "${INSTALL_HARDENED_MALLOC}" = "yes" ]; then
     (cd ${HOME} &&
      git clone https://github.com/GrapheneOS/hardened_malloc.git &&
      cd ${HOME}/hardened_malloc &&
-     make -j2 && sudo cp out/libhardened_malloc.so /usr/lib/)
+     make && sudo cp out/libhardened_malloc.so /usr/lib/)
 fi
 
 if [ ! -z "${INSTALL_OPENSSL}" ]; then
@@ -189,13 +197,28 @@ if [ ! -z "${INSTALL_LIBRESSL}" ]; then
          git checkout ${INSTALL_LIBRESSL} &&
          sh update.sh && sh autogen.sh &&
          ./configure --prefix=/opt/libressl &&
-         make -j2 && sudo make install)
+         make && sudo make install)
     else
         LIBRESSL_URLBASE=https://cdn.openbsd.org/pub/OpenBSD/LibreSSL
         (cd ${HOME} &&
          wget ${LIBRESSL_URLBASE}/libressl-${INSTALL_LIBRESSL}.tar.gz &&
          tar xfz libressl-${INSTALL_LIBRESSL}.tar.gz &&
          cd libressl-${INSTALL_LIBRESSL} &&
-         ./configure --prefix=/opt/libressl && make -j2 && sudo make install)
+         ./configure --prefix=/opt/libressl && make && sudo make install)
     fi
+fi
+
+if [ ! -z "${INSTALL_BORINGSSL}" ]; then
+    (cd ${HOME} && git clone https://boringssl.googlesource.com/boringssl &&
+     cd ${HOME}/boringssl && mkdir build && cd build &&
+     cmake -GNinja  -DCMAKE_POSITION_INDEPENDENT_CODE=ON .. && ninja &&
+     mkdir -p /opt/boringssl/lib &&
+     cp ${HOME}/boringssl/build/crypto/libcrypto.a /opt/boringssl/lib &&
+     cp -r ${HOME}/boringssl/include /opt/boringssl)
+fi
+
+if [ ! -z "${INSTALL_ZLIB}" ]; then
+    (cd ${HOME} && git clone https://github.com/madler/zlib.git &&
+     cd ${HOME}/zlib && ./configure && make &&
+     sudo make install prefix=/opt/zlib)
 fi
