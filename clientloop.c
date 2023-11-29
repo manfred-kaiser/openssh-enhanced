@@ -1,4 +1,4 @@
-/* $OpenBSD: clientloop.c,v 1.400 2023/10/12 02:12:53 djm Exp $ */
+/* $OpenBSD: clientloop.c,v 1.402 2023/11/24 00:31:30 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -211,6 +211,7 @@ quit_message(const char *fmt, ...)
 
 	if ((r = sshbuf_putf(stderr_buffer, "%s\r\n", msg)) != 0)
 		fatal_fr(r, "sshbuf_putf");
+	free(msg);
 	quit_pending = 1;
 }
 
@@ -589,7 +590,7 @@ obfuscate_keystroke_timing(struct ssh *ssh, struct timespec *timeout,
 	if (options.obscure_keystroke_timing_interval <= 0)
 		return 1;	/* disabled in config */
 
-	if (!channel_still_open(ssh) || quit_pending) {
+	if (!channel_tty_open(ssh) || quit_pending) {
 		/* Stop if no channels left of we're waiting for one to close */
 		stop_reason = "no active channels";
 	} else if (ssh_packet_is_rekeying(ssh)) {
