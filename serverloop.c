@@ -1,4 +1,4 @@
-/* $OpenBSD: serverloop.c,v 1.238 2024/04/30 02:14:10 djm Exp $ */
+/* $OpenBSD: serverloop.c,v 1.247 2026/05/31 04:47:29 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -40,9 +40,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
-#ifdef HAVE_SYS_TIME_H
-# include <sys/time.h>
-#endif
+#include <sys/time.h>
+#include <sys/queue.h>
 
 #include <netinet/in.h>
 
@@ -50,16 +49,13 @@
 #include <fcntl.h>
 #include <pwd.h>
 #include <limits.h>
-#ifdef HAVE_POLL_H
 #include <poll.h>
-#endif
 #include <signal.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
 #include <stdarg.h>
 
-#include "openbsd-compat/sys-queue.h"
 #include "xmalloc.h"
 #include "packet.h"
 #include "sshbuf.h"
@@ -86,14 +82,11 @@ extern ServerOptions options;
 /* XXX */
 extern Authctxt *the_authctxt;
 extern struct sshauthopt *auth_opts;
-extern int use_privsep;
 
 static int no_more_sessions = 0; /* Disallow further sessions. */
 
-static volatile sig_atomic_t child_terminated = 0;	/* The child has terminated. */
-
-/* Cleanup on signals (!use_privsep case only) */
-static volatile sig_atomic_t received_sigterm = 0;
+static volatile sig_atomic_t child_terminated = 0; /* set on SIGCHLD */
+static volatile sig_atomic_t siginfo_received = 0;
 
 /* prototypes */
 static void server_init_dispatch(struct ssh *);
@@ -101,28 +94,19 @@ static void server_init_dispatch(struct ssh *);
 /* requested tunnel forwarding interface(s), shared with session.c */
 char *tun_fwd_ifnames = NULL;
 
-/* returns 1 if bind to specified port by specified user is permitted */
-static int
-bind_permitted(int port, uid_t uid)
-{
-	if (use_privsep)
-		return 1; /* allow system to decide */
-	if (port < IPPORT_RESERVED && uid != 0)
-		return 0;
-	return 1;
-}
-
 static void
 sigchld_handler(int sig)
 {
 	child_terminated = 1;
 }
 
+#ifdef SIGINFO
 static void
-sigterm_handler(int sig)
+siginfo_handler(int sig)
 {
-	received_sigterm = sig;
+	siginfo_received = 1;
 }
+#endif
 
 static void
 client_alive_check(struct ssh *ssh)
@@ -194,12 +178,15 @@ wait_until_can_do_something(struct ssh *ssh,
 	 * start the clock to terminate the connection.
 	 */
 	if (options.unused_connection_timeout != 0) {
-		if (channel_still_open(ssh) || unused_connection_expiry == 0) {
+		if (channel_still_open(ssh))
+			unused_connection_expiry = 0;
+		else if (unused_connection_expiry == 0) {
 			unused_connection_expiry = now +
 			    options.unused_connection_timeout;
 		}
-		ptimeout_deadline_monotime(&timeout, unused_connection_expiry);
 	}
+	if (unused_connection_expiry != 0)
+		ptimeout_deadline_monotime(&timeout, unused_connection_expiry);
 
 	/*
 	 * if using client_alive, set the max timeout accordingly,
@@ -287,11 +274,11 @@ process_input(struct ssh *ssh, int connection_in)
 		if (errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK)
 			return 0;
 		if (errno == EPIPE) {
-			verbose("Connection closed by %.100s port %d",
+			logit("Connection closed by %.100s port %d",
 			    ssh_remote_ipaddr(ssh), ssh_remote_port(ssh));
 			return -1;
 		}
-		verbose("Read error from remote host %s port %d: %s",
+		logit("Read error from remote host %s port %d: %s",
 		    ssh_remote_ipaddr(ssh), ssh_remote_port(ssh),
 		    strerror(errno));
 		cleanup_exit(255);
@@ -306,8 +293,15 @@ static void
 process_output(struct ssh *ssh, int connection_out)
 {
 	int r;
+	static int interactive = -1;
 
 	/* Send any buffered packet data to the client. */
+	if (interactive != !channel_has_bulk(ssh)) {
+		interactive = !channel_has_bulk(ssh);
+		debug2_f("session QoS is now %s", interactive ?
+		    "interactive" : "non-interactive");
+		ssh_packet_set_interactive(ssh, interactive);
+	}
 	if ((r = ssh_packet_write_poll(ssh)) != 0) {
 		sshpkt_fatal(ssh, r, "%s: ssh_packet_write_poll",
 		    __func__);
@@ -347,18 +341,18 @@ server_loop2(struct ssh *ssh, Authctxt *authctxt)
 
 	debug("Entering interactive session for SSH2.");
 
-	if (sigemptyset(&bsigset) == -1 || sigaddset(&bsigset, SIGCHLD) == -1)
+	if (sigemptyset(&bsigset) == -1 ||
+	    sigaddset(&bsigset, SIGCHLD) == -1)
 		error_f("bsigset setup: %s", strerror(errno));
 	ssh_signal(SIGCHLD, sigchld_handler);
+#ifdef SIGINFO
+	if (sigaddset(&bsigset, SIGINFO) == -1)
+		error_f("bsigset setup: %s", strerror(errno));
+	ssh_signal(SIGINFO, siginfo_handler);
+#endif
 	child_terminated = 0;
 	connection_in = ssh_packet_get_connection_in(ssh);
 	connection_out = ssh_packet_get_connection_out(ssh);
-
-	if (!use_privsep) {
-		ssh_signal(SIGTERM, sigterm_handler);
-		ssh_signal(SIGINT, sigterm_handler);
-		ssh_signal(SIGQUIT, sigterm_handler);
-	}
 
 	server_init_dispatch(ssh);
 
@@ -377,17 +371,15 @@ server_loop2(struct ssh *ssh, Authctxt *authctxt)
 		if (sigprocmask(SIG_BLOCK, &bsigset, &osigset) == -1)
 			error_f("bsigset sigprocmask: %s", strerror(errno));
 		collect_children(ssh);
+		if (siginfo_received) {
+			siginfo_received = 0;
+			channel_report_open(ssh, SYSLOG_LEVEL_INFO);
+		}
 		wait_until_can_do_something(ssh, connection_in, connection_out,
 		    &pfd, &npfd_alloc, &npfd_active, &osigset,
 		    &conn_in_ready, &conn_out_ready);
 		if (sigprocmask(SIG_SETMASK, &osigset, NULL) == -1)
 			error_f("osigset sigprocmask: %s", strerror(errno));
-
-		if (received_sigterm) {
-			logit("Exiting on signal %d", (int)received_sigterm);
-			/* Clean up sessions, utmp, etc. */
-			cleanup_exit(255);
-		}
 
 		channel_after_poll(ssh, pfd, npfd_active);
 		if (conn_in_ready &&
@@ -410,7 +402,7 @@ server_loop2(struct ssh *ssh, Authctxt *authctxt)
 }
 
 static int
-server_input_keep_alive(int type, u_int32_t seq, struct ssh *ssh)
+server_input_keep_alive(int type, uint32_t seq, struct ssh *ssh)
 {
 	debug("Got %d/%u for keepalive", type, seq);
 	/*
@@ -498,7 +490,7 @@ server_request_direct_streamlocal(struct ssh *ssh)
 	/* XXX fine grained permissions */
 	if ((options.allow_streamlocal_forwarding & FORWARD_LOCAL) != 0 &&
 	    auth_opts->permit_port_forwarding_flag &&
-	    !options.disable_forwarding && (pw->pw_uid == 0 || use_privsep)) {
+	    !options.disable_forwarding) {
 		c = channel_connect_to_path(ssh, target,
 		    "direct-streamlocal@openssh.com", "direct-streamlocal");
 	} else {
@@ -531,7 +523,7 @@ server_request_tun(struct ssh *ssh)
 		ssh_packet_send_debug(ssh, "Unsupported tunnel device mode.");
 		return NULL;
 	}
-	if ((options.permit_tun & mode) == 0) {
+	if ((options.permit_tun & mode) == 0 || options.disable_forwarding) {
 		ssh_packet_send_debug(ssh, "Server has rejected tunnel device "
 		    "forwarding");
 		return NULL;
@@ -616,7 +608,7 @@ server_request_session(struct ssh *ssh)
 }
 
 static int
-server_input_channel_open(int type, u_int32_t seq, struct ssh *ssh)
+server_input_channel_open(int type, uint32_t seq, struct ssh *ssh)
 {
 	Channel *c = NULL;
 	char *ctype = NULL;
@@ -683,7 +675,7 @@ server_input_hostkeys_prove(struct ssh *ssh, struct sshbuf **respp)
 	int r, ndx, success = 0;
 	const u_char *blob;
 	const char *sigalg, *kex_rsa_sigalg = NULL;
-	u_char *sig = 0;
+	u_char *sig = NULL;
 	size_t blen, slen;
 
 	if ((resp = sshbuf_new()) == NULL || (sigbuf = sshbuf_new()) == NULL)
@@ -723,7 +715,7 @@ server_input_hostkeys_prove(struct ssh *ssh, struct sshbuf **respp)
 		 * For RSA keys, prefer to use the signature type negotiated
 		 * during KEX to the default (SHA1).
 		 */
-		sigalg = NULL;
+		sigalg = sshkey_ssh_name(key);
 		if (sshkey_type_plain(key->type) == KEY_RSA) {
 			if (kex_rsa_sigalg != NULL)
 				sigalg = kex_rsa_sigalg;
@@ -732,6 +724,7 @@ server_input_hostkeys_prove(struct ssh *ssh, struct sshbuf **respp)
 			else if (ssh->kex->flags & KEX_RSA_SHA2_256_SUPPORTED)
 				sigalg = "rsa-sha2-256";
 		}
+
 		debug3_f("sign %s key (index %d) using sigalg %s",
 		    sshkey_type(key), ndx, sigalg == NULL ? "default" : sigalg);
 		if ((r = sshbuf_put_cstring(sigbuf,
@@ -759,7 +752,7 @@ server_input_hostkeys_prove(struct ssh *ssh, struct sshbuf **respp)
 }
 
 static int
-server_input_global_request(int type, u_int32_t seq, struct ssh *ssh)
+server_input_global_request(int type, uint32_t seq, struct ssh *ssh)
 {
 	char *rtype = NULL;
 	u_char want_reply = 0;
@@ -792,9 +785,7 @@ server_input_global_request(int type, u_int32_t seq, struct ssh *ssh)
 		    (options.allow_tcp_forwarding & FORWARD_REMOTE) == 0 ||
 		    !auth_opts->permit_port_forwarding_flag ||
 		    options.disable_forwarding ||
-		    (!want_reply && fwd.listen_port == 0) ||
-		    (fwd.listen_port != 0 &&
-		    !bind_permitted(fwd.listen_port, pw->pw_uid))) {
+		    (!want_reply && fwd.listen_port == 0)) {
 			success = 0;
 			ssh_packet_send_debug(ssh, "Server has disabled port forwarding.");
 		} else {
@@ -827,8 +818,7 @@ server_input_global_request(int type, u_int32_t seq, struct ssh *ssh)
 		/* check permissions */
 		if ((options.allow_streamlocal_forwarding & FORWARD_REMOTE) == 0
 		    || !auth_opts->permit_port_forwarding_flag ||
-		    options.disable_forwarding ||
-		    (pw->pw_uid != 0 && !use_privsep)) {
+		    options.disable_forwarding) {
 			success = 0;
 			ssh_packet_send_debug(ssh, "Server has disabled "
 			    "streamlocal forwarding.");
@@ -867,7 +857,7 @@ server_input_global_request(int type, u_int32_t seq, struct ssh *ssh)
 }
 
 static int
-server_input_channel_req(int type, u_int32_t seq, struct ssh *ssh)
+server_input_channel_req(int type, uint32_t seq, struct ssh *ssh)
 {
 	Channel *c;
 	int r, success = 0;

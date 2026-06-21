@@ -1,4 +1,4 @@
-/* $OpenBSD: auth2-none.c,v 1.25 2023/03/05 05:34:09 dtucker Exp $ */
+/* $OpenBSD: auth2-none.c,v 1.26 2024/05/17 00:30:23 djm Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  *
@@ -26,16 +26,9 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/uio.h>
-
-#include <fcntl.h>
-#include <string.h>
-#include <unistd.h>
 #include <stdarg.h>
 #include <stdio.h>
 
-#include "atomicio.h"
 #include "xmalloc.h"
 #include "sshkey.h"
 #include "hostfile.h"
@@ -53,9 +46,9 @@
 
 /* import */
 extern ServerOptions options;
+extern struct authmethod_cfg methodcfg_none;
 
-/* "none" is allowed only one time */
-static int none_enabled = 1;
+extern int none_enabled;
 
 static int
 userauth_none(struct ssh *ssh, const char *method)
@@ -66,13 +59,11 @@ userauth_none(struct ssh *ssh, const char *method)
 	if ((r = sshpkt_get_end(ssh)) != 0)
 		fatal_fr(r, "parse packet");
 	if (options.permit_empty_passwd && options.password_authentication)
-		return (PRIVSEP(auth_password(ssh, "")));
+		return mm_auth_password(ssh, "");
 	return (0);
 }
 
 Authmethod method_none = {
-	"none",
-	NULL,
+	&methodcfg_none,
 	userauth_none,
-	&none_enabled
 };

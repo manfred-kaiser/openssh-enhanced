@@ -1,4 +1,4 @@
-/* 	$OpenBSD: tests.c,v 1.4 2024/01/11 01:45:59 djm Exp $ */
+/* 	$OpenBSD: tests.c,v 1.7 2026/06/14 04:08:06 djm Exp $ */
 /*
  * Regress test for sshbuf.h buffer API
  *
@@ -11,9 +11,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
-#ifdef HAVE_STDINT_H
 #include <stdint.h>
-#endif
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -103,11 +101,6 @@ tests(void)
 	check_sig("rsa.pub", "rsa.sig", msg, namespace);
 	TEST_DONE();
 
-#ifdef WITH_DSA
-	TEST_START("check DSA signature");
-	check_sig("dsa.pub", "dsa.sig", msg, namespace);
-	TEST_DONE();
-#endif
 
 #ifdef OPENSSL_HAS_ECC
 	TEST_START("check ECDSA signature");
@@ -118,6 +111,10 @@ tests(void)
 
 	TEST_START("check ED25519 signature");
 	check_sig("ed25519.pub", "ed25519.sig", msg, namespace);
+	TEST_DONE();
+
+	TEST_START("check MLDSA44-ED25519 signature");
+	check_sig("mldsa44-ed25519.pub", "mldsa44-ed25519.sig", msg, namespace);
 	TEST_DONE();
 
 #ifdef ENABLE_SK
@@ -141,4 +138,10 @@ tests(void)
 
 	sshbuf_free(msg);
 	free(namespace);
+}
+
+void
+benchmarks(void)
+{
+	printf("no benchmarks\n");
 }
