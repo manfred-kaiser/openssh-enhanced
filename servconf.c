@@ -1388,6 +1388,7 @@ process_server_config_line_depth(ServerOptions *options, char *line,
 		ca_only = 0;
 		goto parse_flag;
 
+	/* CUSTOM: PubkeyDisablePKCheck (server) */
 	case sPubkeyDisablePKCheck:
 		intptr = &options->pubkey_disable_pk_check;
 		goto parse_flag;
@@ -4210,7 +4211,7 @@ dump_config(ServerOptions *o)
 	dump_cfg_fmtint(sHostbasedUsesNameFromPacketOnly,
 	    o->hostbased_uses_name_from_packet_only);
 	dump_cfg_fmtint(sPubkeyAuthentication, o->pubkey_authentication);
-	dump_cfg_fmtint(sPubkeyDisablePKCheck, o->pubkey_disable_pk_check);
+	dump_cfg_fmtint(sPubkeyDisablePKCheck, o->pubkey_disable_pk_check); /* CUSTOM: PubkeyDisablePKCheck */
 #ifdef KRB5
 	dump_cfg_fmtint(sKerberosAuthentication, o->kerberos_authentication);
 	dump_cfg_fmtint(sKerberosOrLocalPasswd, o->kerberos_or_local_passwd);

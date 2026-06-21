@@ -37,9 +37,10 @@ typedef struct {
 	char   *xauth_location;	/* Location for xauth program */
 	struct ForwardOptions fwd_opts;	/* forwarding options */
 	int     pubkey_authentication;	/* Try ssh2 pubkey authentication. */
+	/* CUSTOM: PubkeyDisablePKCheck (client) — see ENHANCEMENTS.md */
 	int		pubkey_disable_pk_check; /* If true, disables ssh2 pubkey check. */
 	int     hostbased_authentication;	/* ssh2's rhosts_rsa */
-
+	/* CUSTOM: DisableTrivialAuth (client) — see ENHANCEMENTS.md */
 	int 	disable_trivial_auth; /* disable trivial authentications */
 	int     gss_authentication;	/* Try GSS authentication */
 	int     gss_deleg_creds;	/* Delegate GSS credentials */

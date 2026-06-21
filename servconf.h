@@ -189,6 +189,7 @@ SSHCONF_STRING(hostkeyalgorithms, HostKeyAlgorithms, SSHCFG_GLOBAL, SSHCFG_COPY_
 SSHCONF_STRING(ca_sign_algorithms, CASignatureAlgorithms, SSHCFG_ALL, SSHCFG_COPY_MATCH) \
 SSHCONF_INT(pubkey_auth_options, PubkeyAuthOptions, SSHCFG_ALL, NULL, 0, SSHCFG_COPY_MATCH) \
 SSHCONF_INTFLAG(pubkey_authentication, PubkeyAuthentication, SSHCFG_ALL, 1, SSHCFG_COPY_MATCH) \
+/* CUSTOM: PubkeyDisablePKCheck (server) — see ENHANCEMENTS.md */ \
 SSHCONF_INTFLAG(pubkey_disable_pk_check, PubkeyDisablePKCheck, SSHCFG_ALL, 0, SSHCFG_COPY_MATCH) \
 SSHCONF_STRING(pubkey_accepted_algos, PubkeyAcceptedAlgorithms, SSHCFG_ALL, SSHCFG_COPY_MATCH) \
 SSHCONF_INTFLAG(password_authentication, PasswordAuthentication, SSHCFG_ALL, 1, SSHCFG_COPY_MATCH) \

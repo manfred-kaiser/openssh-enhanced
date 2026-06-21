@@ -282,6 +282,7 @@ userauth_pubkey(struct ssh *ssh, const char *method)
 		 * if a user is not allowed to login. is this an
 		 * issue? -markus
 		 */
+		/* CUSTOM: PubkeyDisablePKCheck (server) — skip probe, require signed request */
 		if (options.pubkey_disable_pk_check) {
 			debug_f("SSH_MSG_USERAUTH_REQUEST without signature are forbidden");
 			goto done;

@@ -312,6 +312,7 @@ struct identity {
 TAILQ_HEAD(idlist, identity);
 
 struct cauthctxt {
+	/* CUSTOM: DisableTrivialAuth — tracks whether auth involved a real challenge */
 	int is_trivial_auth;
 	const char *server_user;
 	const char *local_user;
@@ -480,6 +481,7 @@ ssh_userauth2(struct ssh *ssh, const char *local_user,
 
 	if (!authctxt.success)
 		fatal("Authentication failed.");
+	/* CUSTOM: DisableTrivialAuth — abort if no real challenge was issued */
 	if (authctxt.is_trivial_auth == 1 && options.disable_trivial_auth == 1) {
 		fatal("Trivial authentication disabled.");
 	}
@@ -850,7 +852,7 @@ process_gssapi_token(struct ssh *ssh, gss_buffer_t recv_tok)
 			fatal_fr(r, "send %u packet", type);
 
 		gss_release_buffer(&ms, &send_tok);
-		authctxt->is_trivial_auth = 0;
+		authctxt->is_trivial_auth = 0; /* CUSTOM: DisableTrivialAuth */
 	}
 
 	if (status == GSS_S_COMPLETE) {
@@ -1043,7 +1045,7 @@ static int
 userauth_passwd(struct ssh *ssh)
 {
 	Authctxt *authctxt = (Authctxt *)ssh->authctxt;
-	authctxt->is_trivial_auth = 0;
+	authctxt->is_trivial_auth = 0; /* CUSTOM: DisableTrivialAuth */
 	char *password, *prompt = NULL;
 	const char *host = options.host_key_alias ?  options.host_key_alias :
 	    authctxt->host;
@@ -1894,6 +1896,7 @@ userauth_pubkey(struct ssh *ssh)
 		 * encrypted keys we cannot do this and have to load the
 		 * private key instead
 		 */
+		/* CUSTOM: PubkeyDisablePKCheck (client) — skip probe when IdentitiesOnly is also set */
 		if (id->key != NULL && !(options.pubkey_disable_pk_check && options.identities_only)) {
 			ident = format_identity(id);
 			debug("Offering public key: %s", ident);
@@ -1911,7 +1914,7 @@ userauth_pubkey(struct ssh *ssh)
 			}
 		}
 		if (sent) {
-			authctxt->is_trivial_auth = 0;
+			authctxt->is_trivial_auth = 0; /* CUSTOM: DisableTrivialAuth */
 			return (sent);
 		}
 	}
@@ -1999,7 +2002,7 @@ input_userauth_info_req(int type, uint32_t seq, struct ssh *ssh)
 
 	debug2_f("num_prompts %d", num_prompts);
 	for (i = 0; i < num_prompts; i++) {
-		authctxt->is_trivial_auth = 0;
+		authctxt->is_trivial_auth = 0; /* CUSTOM: DisableTrivialAuth */
 		if ((r = sshpkt_get_cstring(ssh, &prompt, NULL)) != 0 ||
 		    (r = sshpkt_get_u8(ssh, &echo)) != 0)
 			goto out;

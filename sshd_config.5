@@ -1356,6 +1356,7 @@ Available keywords are
 .Cm PermitUserRC ,
 .Cm PubkeyAcceptedAlgorithms ,
 .Cm PubkeyAuthentication ,
+.\\" CUSTOM: PubkeyDisablePKCheck (server) -- see ENHANCEMENTS.md
 .Cm PubkeyDisablePKCheck ,
 .Cm PubkeyAuthOptions ,
 .Cm RefuseConnection ,
@@ -1806,6 +1807,7 @@ options have any effect for other, non-FIDO, public key types.
 Specifies whether public key authentication is allowed.
 The default is
 .Cm yes .
+.\\" CUSTOM: PubkeyDisablePKCheck (server) -- see ENHANCEMENTS.md
 .It Cm PubkeyDisablePKCheck
 Disables publickey lookups during publickey authentication. Only recommended for high security environments.
 The default is

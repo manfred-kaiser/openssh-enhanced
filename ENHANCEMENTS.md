@@ -17,10 +17,13 @@ identity. This option detects such situations client-side.
 
 **How it works:** The client tracks an `is_trivial_auth` flag that starts as `1` (trivial).
 Each real authentication step resets it to `0`:
-- GSSAPI token exchange
-- Password entry (any prompt sent by the server)
-- Keyboard-interactive challenge with at least one prompt
-- Public key signature (`SSH_MSG_USERAUTH_REQUEST` with a signature)
+
+- GSSAPI: reset after a GSSAPI token has been successfully exchanged with the server
+- Password: reset as soon as the client enters the password authentication method (before
+  reading the server prompt)
+- Keyboard-interactive: reset once for each prompt received from the server; stays trivial
+  if the server sends zero prompts
+- Public key: reset after a probe or signed request is successfully sent to the server
 
 If authentication succeeds but `is_trivial_auth` is still `1`, the connection is aborted
 with `"Trivial authentication disabled."`.
@@ -56,7 +59,7 @@ private key.
 a signed request directly. The server then validates the signature and the key in a single
 step.
 
-**Configuration (`/etc/sshd_config`):**
+**Configuration (`/etc/ssh/sshd_config`):**
 
 ```
 PubkeyDisablePKCheck yes
@@ -71,13 +74,16 @@ Default: `no`
 **Purpose:** Lets the client skip the probe step and go straight to signing, matching a
 server that has `PubkeyDisablePKCheck yes`.
 
-**How it works:** When `PubkeyDisablePKCheck yes` is set on the client, the public key
-authentication code skips the preliminary unsigned request and sends the signed
-`SSH_MSG_USERAUTH_REQUEST` immediately.
+**How it works:** The client skips the preliminary unsigned probe and sends the signed
+`SSH_MSG_USERAUTH_REQUEST` directly. This only takes effect when `IdentitiesOnly yes` is
+also set — without it, keys whose public component is already loaded (e.g. from `.pub` files)
+still trigger a probe, because the client cannot guarantee the private key is available
+without trying.
 
 **Configuration (`~/.ssh/config`):**
 
 ```
+IdentitiesOnly yes
 PubkeyDisablePKCheck yes
 ```
 
@@ -89,9 +95,9 @@ Default: `no`
 
 | Scenario | Result |
 |---|---|
-| Server has `PubkeyDisablePKCheck yes`, client does not | Client sends probe, server ignores it; client then signs and authenticates normally. |
-| Client has `PubkeyDisablePKCheck yes`, server does not | Client skips probe and sends signature directly; server validates as normal. |
-| Both sides have `PubkeyDisablePKCheck yes` | No probe round-trip at all; one fewer network exchange. |
+| Server has `PubkeyDisablePKCheck yes`, client does not | Client sends probe, server ignores it and returns no confirmation; client then signs and authenticates normally. |
+| Client has `PubkeyDisablePKCheck yes` + `IdentitiesOnly yes`, server does not | Client skips probe and sends signature directly; server validates as normal. |
+| Both sides have `PubkeyDisablePKCheck yes` (client also sets `IdentitiesOnly yes`) | No probe round-trip at all; one fewer network exchange. |
 | Client has `DisableTrivialAuth yes` | Any auth that completes without a real challenge causes a fatal client-side error. |
 
 ## Security rationale

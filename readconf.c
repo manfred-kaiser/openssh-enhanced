@@ -144,9 +144,9 @@ typedef enum {
 	oBatchMode, oCheckHostIP, oStrictHostKeyChecking, oCompression,
 	oTCPKeepAlive, oNumberOfPasswordPrompts,
 	oLogFacility, oLogLevel, oLogVerbose, oCiphers, oMacs,
-	oPubkeyAuthentication, oPubkeyDisablePKCheck,
+	oPubkeyAuthentication, oPubkeyDisablePKCheck, /* CUSTOM: PubkeyDisablePKCheck */
 	oKbdInteractiveAuthentication, oKbdInteractiveDevices, oHostKeyAlias,
-	oDynamicForward, oPreferredAuthentications, oHostbasedAuthentication, oDisableTrivialAuth,
+	oDynamicForward, oPreferredAuthentications, oHostbasedAuthentication, oDisableTrivialAuth, /* CUSTOM: DisableTrivialAuth */
 	oHostKeyAlgorithms, oBindAddress, oBindInterface, oPKCS11Provider,
 	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
 	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
@@ -225,10 +225,10 @@ static struct {
 	{ "skeyauthentication", oKbdInteractiveAuthentication }, /* alias */
 	{ "tisauthentication", oKbdInteractiveAuthentication },  /* alias */
 	{ "pubkeyauthentication", oPubkeyAuthentication },
-	{ "pubkeydisablepkcheck", oPubkeyDisablePKCheck},
+	{ "pubkeydisablepkcheck", oPubkeyDisablePKCheck}, /* CUSTOM: PubkeyDisablePKCheck */
 	{ "dsaauthentication", oPubkeyAuthentication },		    /* alias */
 	{ "hostbasedauthentication", oHostbasedAuthentication },
-	{ "disabletrivialauth", oDisableTrivialAuth},
+	{ "disabletrivialauth", oDisableTrivialAuth}, /* CUSTOM: DisableTrivialAuth */
 	{ "identityfile", oIdentityFile },
 	{ "identityfile2", oIdentityFile },			/* obsolete */
 	{ "identitiesonly", oIdentitiesOnly },
@@ -1313,6 +1313,7 @@ parse_time:
 		intptr = &options->pubkey_authentication;
 		goto parse_multistate;
 
+	/* CUSTOM: PubkeyDisablePKCheck (client) */
 	case oPubkeyDisablePKCheck:
 		intptr = &options->pubkey_disable_pk_check;
 		goto parse_flag;
@@ -1321,6 +1322,7 @@ parse_time:
 		intptr = &options->hostbased_authentication;
 		goto parse_flag;
 
+	/* CUSTOM: DisableTrivialAuth (client) */
 	case oDisableTrivialAuth:
 		intptr = &options->disable_trivial_auth;
 		goto parse_flag;
@@ -2727,14 +2729,14 @@ initialize_options(Options * options)
 	options->fwd_opts.streamlocal_bind_mask = (mode_t)-1;
 	options->fwd_opts.streamlocal_bind_unlink = -1;
 	options->pubkey_authentication = -1;
-	options->pubkey_disable_pk_check = -1;
+	options->pubkey_disable_pk_check = -1; /* CUSTOM: PubkeyDisablePKCheck */
 	options->gss_authentication = -1;
 	options->gss_deleg_creds = -1;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->kbd_interactive_devices = NULL;
 	options->hostbased_authentication = -1;
-	options->disable_trivial_auth = -1;
+	options->disable_trivial_auth = -1; /* CUSTOM: DisableTrivialAuth */
 	options->batch_mode = -1;
 	options->check_host_ip = -1;
 	options->strict_host_key_checking = -1;
@@ -2894,7 +2896,7 @@ fill_default_options(Options * options)
 		options->fwd_opts.streamlocal_bind_unlink = 0;
 	if (options->pubkey_authentication == -1)
 		options->pubkey_authentication = SSH_PUBKEY_AUTH_ALL;
-	if (options->pubkey_disable_pk_check == -1)
+	if (options->pubkey_disable_pk_check == -1) /* CUSTOM: PubkeyDisablePKCheck */
 		options->pubkey_disable_pk_check = 0;
 	if (options->gss_authentication == -1)
 		options->gss_authentication = 0;
@@ -2906,7 +2908,7 @@ fill_default_options(Options * options)
 		options->kbd_interactive_authentication = 1;
 	if (options->hostbased_authentication == -1)
 		options->hostbased_authentication = 0;
-	if (options->disable_trivial_auth == -1)
+	if (options->disable_trivial_auth == -1) /* CUSTOM: DisableTrivialAuth */
 		options->disable_trivial_auth = 0;
 	if (options->batch_mode == -1)
 		options->batch_mode = 0;
@@ -3785,7 +3787,7 @@ dump_client_config(Options *o, const char *host)
 #endif /* GSSAPI */
 	dump_cfg_fmtint(oHashKnownHosts, o->hash_known_hosts);
 	dump_cfg_fmtint(oHostbasedAuthentication, o->hostbased_authentication);
-	dump_cfg_fmtint(oDisableTrivialAuth, o->disable_trivial_auth);
+	dump_cfg_fmtint(oDisableTrivialAuth, o->disable_trivial_auth); /* CUSTOM: DisableTrivialAuth */
 	dump_cfg_fmtint(oIdentitiesOnly, o->identities_only);
 	dump_cfg_fmtint(oKbdInteractiveAuthentication, o->kbd_interactive_authentication);
 	dump_cfg_fmtint(oNoHostAuthenticationForLocalhost, o->no_host_authentication_for_localhost);
@@ -3793,7 +3795,7 @@ dump_client_config(Options *o, const char *host)
 	dump_cfg_fmtint(oPermitLocalCommand, o->permit_local_command);
 	dump_cfg_fmtint(oProxyUseFdpass, o->proxy_use_fdpass);
 	dump_cfg_fmtint(oPubkeyAuthentication, o->pubkey_authentication);
-	dump_cfg_fmtint(oPubkeyDisablePKCheck, o->pubkey_disable_pk_check);
+	dump_cfg_fmtint(oPubkeyDisablePKCheck, o->pubkey_disable_pk_check); /* CUSTOM: PubkeyDisablePKCheck */
 	dump_cfg_fmtint(oRequestTTY, o->request_tty);
 	dump_cfg_fmtint(oSessionType, o->session_type);
 	dump_cfg_fmtint(oStdinNull, o->stdin_null);
